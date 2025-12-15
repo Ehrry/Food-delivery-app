@@ -15,6 +15,42 @@ const pool = new Pool({
   port: 5432,
 });
 
+// Ensure order tables exist before handling requests
+const ensureOrdersSchema = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS orders (
+      id SERIAL PRIMARY KEY,
+      cart_id INTEGER NOT NULL,
+      first_name TEXT NOT NULL,
+      last_name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      address TEXT NOT NULL,
+      city TEXT NOT NULL,
+      state TEXT NOT NULL,
+      zip TEXT NOT NULL,
+      country TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      subtotal NUMERIC(10,2) NOT NULL,
+      delivery_fee NUMERIC(10,2) NOT NULL,
+      total NUMERIC(10,2) NOT NULL,
+      status TEXT DEFAULT 'pending',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS order_items (
+      id SERIAL PRIMARY KEY,
+      order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+      product_id INTEGER NOT NULL,
+      quantity INTEGER NOT NULL,
+      price NUMERIC(10,2) NOT NULL,
+      total_price NUMERIC(10,2) NOT NULL
+    );
+  `);
+};
+
+ensureOrdersSchema().catch((err) => {
+  console.error("Failed to ensure order tables", err);
+});
+
 // ----- Serve Images Folder -----
 app.use("/images", express.static("images"));
 
@@ -178,6 +214,112 @@ app.patch("/cart/:productId/decrement", async (req, res) => {
     res.json({ message: "Item quantity decremented" });
   } catch (err) {
     console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// ----- POST: Place Order from Cart -----
+app.post("/orders", async (req, res) => {
+  const {
+    firstName,
+    lastName,
+    email,
+    address,
+    city,
+    state,
+    zip,
+    country,
+    phone,
+  } = req.body || {};
+
+  if (
+    !firstName ||
+    !lastName ||
+    !email ||
+    !address ||
+    !city ||
+    !state ||
+    !zip ||
+    !country ||
+    !phone
+  ) {
+    return res.status(400).json({ error: "Missing required customer details" });
+  }
+
+  const cart_id = 1;
+  let transactionStarted = false;
+
+  try {
+    const cartItems = await pool.query(
+      `SELECT product_id, quantity, price
+       FROM cart_items
+       WHERE cart_id = $1`,
+      [cart_id]
+    );
+
+    if (cartItems.rows.length === 0) {
+      return res.status(400).json({ error: "Cart is empty" });
+    }
+
+    const subtotal = cartItems.rows.reduce(
+      (acc, item) => acc + Number(item.price) * item.quantity,
+      0
+    );
+    const deliveryFee = subtotal === 0 ? 0 : 2;
+    const total = subtotal + deliveryFee;
+
+    await pool.query("BEGIN");
+    transactionStarted = true;
+
+    const orderResult = await pool.query(
+      `INSERT INTO orders
+        (cart_id, first_name, last_name, email, address, city, state, zip, country, phone, subtotal, delivery_fee, total)
+       VALUES
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       RETURNING id`,
+      [
+        cart_id,
+        firstName,
+        lastName,
+        email,
+        address,
+        city,
+        state,
+        zip,
+        country,
+        phone,
+        subtotal,
+        deliveryFee,
+        total,
+      ]
+    );
+
+    const orderId = orderResult.rows[0].id;
+
+    for (const item of cartItems.rows) {
+      const itemTotal = Number(item.price) * item.quantity;
+      await pool.query(
+        `INSERT INTO order_items (order_id, product_id, quantity, price, total_price)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [orderId, item.product_id, item.quantity, item.price, itemTotal]
+      );
+    }
+
+    await pool.query("DELETE FROM cart_items WHERE cart_id = $1", [cart_id]);
+    await pool.query("COMMIT");
+
+    res.status(201).json({
+      orderId,
+      subtotal,
+      deliveryFee,
+      total,
+      message: "Order placed successfully",
+    });
+  } catch (err) {
+    if (transactionStarted) {
+      await pool.query("ROLLBACK");
+    }
+    console.error("Order placement failed:", err);
     res.status(500).send("Server Error");
   }
 });
