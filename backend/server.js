@@ -218,6 +218,56 @@ app.patch("/cart/:productId/decrement", async (req, res) => {
   }
 });
 
+// ----- GET: Fetch All Orders with Their Items -----
+app.get("/orders", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+         o.id,
+         o.cart_id,
+         o.first_name,
+         o.last_name,
+         o.email,
+         o.address,
+         o.city,
+         o.state,
+         o.zip,
+         o.country,
+         o.phone,
+         o.subtotal,
+         o.delivery_fee,
+         o.total,
+         o.status,
+         o.created_at,
+         COALESCE(
+           json_agg(
+             json_build_object(
+               'id', oi.id,
+               'product_id', oi.product_id,
+               'quantity', oi.quantity,
+               'price', oi.price,
+               'total_price', oi.total_price,
+               'name', p.name,
+               'description', p.description,
+               'image_url', p.image_url
+             )
+           ) FILTER (WHERE oi.id IS NOT NULL),
+           '[]'
+         ) AS items
+       FROM orders o
+       LEFT JOIN order_items oi ON oi.order_id = o.id
+       LEFT JOIN products p ON oi.product_id = p.id
+       GROUP BY o.id
+       ORDER BY o.created_at DESC`
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Failed to fetch orders:", err);
+    res.status(500).send("Server Error");
+  }
+});
+
 // ----- POST: Place Order from Cart -----
 app.post("/orders", async (req, res) => {
   const {
