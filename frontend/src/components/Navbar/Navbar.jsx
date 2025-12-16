@@ -42,15 +42,15 @@ const Navbar = ({ setShowLogin }) => {
       </ul> */}
 
       <div className="navbar-right">
-        {/* <img src={assets.search_icon} alt="" /> */}
         <div className="navbar-search-icon">
-          <Link to="/cart">
-            <img src={assets.basket_icon} alt="" />
+          <Link to="/orders" className="my-orders">
+            My Orders
           </Link>
-
-          <div className={getTotalCartAmount() === 0 ? "" : "dot"}></div>
+          <Link to="/cart" className="cart-link">
+            <img src={assets.basket_icon} alt="Cart" />
+            {getTotalCartAmount() !== 0 && <span className="dot" />}
+          </Link>
         </div>
-        {/* <button onClick={() => setShowLogin(true)}>sign in</button> */}
       </div>
     </div>
   );

@@ -50,15 +50,36 @@
 }
 
 .navbar-search-icon {
-  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 24px;
 }
 
-.navbar-search-icon .dot {
+.cart-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.cart-link img {
+  width: 22px;
+  height: 22px;
+}
+
+.cart-link .dot {
   position: absolute;
   min-width: 10px;
   min-height: 10px;
   background-color: tomato;
   border-radius: 5px;
-  top: -8px;
+  top: -6px;
   right: -8px;
+}
+.my-orders {
+  font-weight: 500;
+}
+
+.my-orders:hover {
+  color: tomato;
+  transition: 0.3s;
 }
