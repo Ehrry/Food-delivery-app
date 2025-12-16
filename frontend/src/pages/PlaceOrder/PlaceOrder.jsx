@@ -51,7 +51,6 @@ const PlaceOrder = () => {
       }
 
       const data = await response.json();
-      setServerMessage(data.message || "Order placed successfully!");
       await fetchCartItems?.();
       setForm({
         firstName: "",
@@ -64,7 +63,15 @@ const PlaceOrder = () => {
         country: "",
         phone: "",
       });
-      navigate("/");
+      navigate("/order-success", {
+        state: {
+          orderId: data.orderId,
+          total: data.total,
+          email: form.email,
+          name: `${form.firstName} ${form.lastName}`.trim(),
+        },
+        replace: true,
+      });
     } catch (err) {
       setServerMessage(err.message || "Order failed. Please try again.");
     } finally {

@@ -9,6 +9,7 @@ import Footer from "./components/Footer/Footer";
 import LoginPopup from "./components/LoginPopup/LoginPopup";
 import { useNavigate } from "react-router-dom";
 import DisplayOrder from "./pages/DisplayOrder/DisplayOrder.jsx";
+import OrderSuccess from "./pages/OrderSuccess/OrderSuccess.jsx";
 
 const App = () => {
   const [showLogin, setShowLogin] = useState(false);
@@ -24,6 +25,7 @@ const App = () => {
           <Route path="/cart" element={<Cart />} />
           <Route path="/order" element={<PlaceOrder />} />
           <Route path="/displayOrder" element={<DisplayOrder />} />
+          <Route path="/order-success" element={<OrderSuccess />} />
         </Routes>
       </div>
       <Footer />

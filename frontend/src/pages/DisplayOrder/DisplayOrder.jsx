@@ -8,7 +8,7 @@ const formatCurrency = (value) =>
     .toString();
 
 const formatDate = (value) => {
-  if (!value) return "—";
+  if (!value) return "---";
   try {
     return new Intl.DateTimeFormat("en-US", {
       dateStyle: "medium",
@@ -162,8 +162,8 @@ const DisplayOrder = () => {
                             {item.name || `Product ${item.product_id}`}
                           </p>
                           <p className="muted small">
-                            Qty {item.quantity} • ${formatCurrency(item.price)}
-                            {" ea"}
+                            Qty {item.quantity} x ${formatCurrency(item.price)}{" "}
+                            ea
                           </p>
                         </div>
                       </div>
