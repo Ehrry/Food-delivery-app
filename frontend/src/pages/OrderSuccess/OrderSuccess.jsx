@@ -37,7 +37,7 @@ const OrderSuccess = () => {
           <button
             type="button"
             className="ghost-btn"
-            onClick={() => navigate("/displayOrder", { replace: true })}
+            onClick={() => navigate("/orders", { replace: true })}
           >
             View order
           </button>
