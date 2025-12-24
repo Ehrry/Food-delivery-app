@@ -1,36 +1,55 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import "./FoodItem.css";
 import { assets } from "../../assets/assets";
 import { StoreContext } from "../../context/StoreContext";
 import { useNavigate } from "react-router-dom";
 
 const FoodItem = ({ id, price, description, image }) => {
-  const { cartItems, addToCart, removeFromCart } = useContext(StoreContext);
+  const { cartItems, addToCart } = useContext(StoreContext);
   const [updating, setUpdating] = useState(false);
   const navigate = useNavigate();
 
   const normalizedId = String(id);
   const count = cartItems[id] ?? cartItems[normalizedId] ?? 0;
 
-  const handleAdd = async () => {
-    if (updating) return;
-    setUpdating(true);
-    try {
-      await addToCart(normalizedId);
-    } catch (err) {
-      console.error("Add to cart failed:", err);
-    } finally {
-      setUpdating(false);
+  // Local quantity state for selection (not in cart yet)
+  const [localQuantity, setLocalQuantity] = useState(1);
+  const [showCounter, setShowCounter] = useState(false);
+
+  // Update local quantity when cart count changes (if item was just added/removed from cart)
+  useEffect(() => {
+    if (count === 0) {
+      setLocalQuantity(1);
+      setShowCounter(false);
     }
+  }, [count]);
+
+  // Handle initial + sign click - show counter starting at 1
+  const handleInitialAdd = () => {
+    setLocalQuantity(1);
+    setShowCounter(true);
   };
 
-  const handleRemove = async () => {
-    if (updating || count <= 0) return;
+  // Handle local quantity increase (doesn't add to cart)
+  const handleIncreaseQuantity = () => {
+    setLocalQuantity((prev) => prev + 1);
+  };
+
+  // Handle local quantity decrease (doesn't remove from cart)
+  const handleDecreaseQuantity = () => {
+    setLocalQuantity((prev) => Math.max(1, prev - 1));
+  };
+
+  // Handle adding to cart with the selected quantity
+  const handleAddToCart = async () => {
+    if (updating || localQuantity <= 0) return;
     setUpdating(true);
     try {
-      await removeFromCart(normalizedId);
+      await addToCart(normalizedId, localQuantity);
+      setLocalQuantity(1); // Reset to 1 after adding
+      setShowCounter(false); // Hide counter after adding
     } catch (err) {
-      console.error("Remove from cart failed:", err);
+      console.error("Add to cart failed:", err);
     } finally {
       setUpdating(false);
     }
@@ -40,9 +59,9 @@ const FoodItem = ({ id, price, description, image }) => {
     if (updating) return;
     setUpdating(true);
     try {
-      // Ensure item is in cart before navigating
+      // Ensure item is in cart with selected quantity before navigating
       if (count === 0) {
-        await addToCart(normalizedId);
+        await addToCart(normalizedId, localQuantity);
       }
       // Navigate to order page
       navigate("/order");
@@ -57,18 +76,26 @@ const FoodItem = ({ id, price, description, image }) => {
     <div className="food-item">
       <div className="food-item-img-container">
         <img className="food-item-image" src={image} alt="" />
-        {!count ? (
+        {!showCounter ? (
           <img
             className="add"
-            onClick={handleAdd}
+            onClick={handleInitialAdd}
             src={assets.add_icon_white}
             alt=""
           />
         ) : (
           <div className="food-item-counter">
-            <img onClick={handleRemove} src={assets.remove_icon_red} alt="" />
-            <p>{count}</p>
-            <img onClick={handleAdd} src={assets.add_icon_green} alt="" />
+            <img
+              onClick={handleDecreaseQuantity}
+              src={assets.remove_icon_red}
+              alt=""
+            />
+            <p>{localQuantity}</p>
+            <img
+              onClick={handleIncreaseQuantity}
+              src={assets.add_icon_green}
+              alt=""
+            />
           </div>
         )}
       </div>
@@ -79,14 +106,15 @@ const FoodItem = ({ id, price, description, image }) => {
         </div> */}
         <p className="food-item-desc">{description}</p>
         <p className="food-item-price">${price}</p>
-        {count > 0 && (
+        {count > 0 && <p className="in-cart-indicator">In Cart: {count}</p>}
+        {showCounter && (
           <>
             <button
               className="add-to-cart-button"
-              onClick={handleAdd}
+              onClick={handleAddToCart}
               disabled={updating}
             >
-              Add to Cart
+              Add to Cart ({localQuantity})
             </button>
             <button
               className="buy-now-button"

@@ -36,6 +36,12 @@
   font-weight: 500;
   margin: 10px 0px;
 }
+.in-cart-indicator {
+  color: #28a745;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 5px 0px;
+}
 .food-item-img-container {
   position: relative;
 }

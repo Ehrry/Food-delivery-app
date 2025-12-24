@@ -30,7 +30,7 @@ const StoreContextProvider = (props) => {
     );
   }, []);
 
-  const addToCart = async (productId) => {
+  const addToCart = async (productId, quantity = 1) => {
     try {
       const response = await fetch("http://localhost:5000/cart/add", {
         method: "POST",
@@ -39,7 +39,7 @@ const StoreContextProvider = (props) => {
         },
         body: JSON.stringify({
           product_id: productId,
-          quantity: 1, // default: add 1 item
+          quantity: quantity,
         }),
       });
 
