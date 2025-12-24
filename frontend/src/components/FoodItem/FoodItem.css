@@ -61,3 +61,53 @@
 .food-item-counter img {
   width: 30px;
 }
+.add-to-cart-button {
+  width: 100%;
+  padding: 10px 20px;
+  margin-top: 10px;
+  background-color: tomato;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: 0.3s;
+}
+.add-to-cart-button:hover {
+  background-color: #ff6347;
+  transform: scale(1.02);
+}
+.add-to-cart-button:active {
+  transform: scale(0.98);
+}
+.add-to-cart-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+.buy-now-button {
+  width: 100%;
+  padding: 10px 20px;
+  margin-top: 10px;
+  background-color: white;
+  color: tomato;
+  border: 2px solid tomato;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: 0.3s;
+}
+.buy-now-button:hover {
+  background-color: #fff5f3;
+  transform: scale(1.02);
+}
+.buy-now-button:active {
+  transform: scale(0.98);
+}
+.buy-now-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}

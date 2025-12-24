@@ -2,10 +2,12 @@ import React, { useContext, useState } from "react";
 import "./FoodItem.css";
 import { assets } from "../../assets/assets";
 import { StoreContext } from "../../context/StoreContext";
+import { useNavigate } from "react-router-dom";
 
-const FoodItem = ({ id, name, price, description, image }) => {
+const FoodItem = ({ id, price, description, image }) => {
   const { cartItems, addToCart, removeFromCart } = useContext(StoreContext);
   const [updating, setUpdating] = useState(false);
+  const navigate = useNavigate();
 
   const normalizedId = String(id);
   const count = cartItems[id] ?? cartItems[normalizedId] ?? 0;
@@ -29,6 +31,23 @@ const FoodItem = ({ id, name, price, description, image }) => {
       await removeFromCart(normalizedId);
     } catch (err) {
       console.error("Remove from cart failed:", err);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleBuyNow = async () => {
+    if (updating) return;
+    setUpdating(true);
+    try {
+      // Ensure item is in cart before navigating
+      if (count === 0) {
+        await addToCart(normalizedId);
+      }
+      // Navigate to order page
+      navigate("/order");
+    } catch (err) {
+      console.error("Buy now failed:", err);
     } finally {
       setUpdating(false);
     }
@@ -60,6 +79,24 @@ const FoodItem = ({ id, name, price, description, image }) => {
         </div> */}
         <p className="food-item-desc">{description}</p>
         <p className="food-item-price">${price}</p>
+        {count > 0 && (
+          <>
+            <button
+              className="add-to-cart-button"
+              onClick={handleAdd}
+              disabled={updating}
+            >
+              Add to Cart
+            </button>
+            <button
+              className="buy-now-button"
+              onClick={handleBuyNow}
+              disabled={updating}
+            >
+              Buy Now
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
