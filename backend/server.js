@@ -15,43 +15,44 @@ const pool = new Pool({
   port: 5432,
 });
 
-// Ensure order tables exist before handling requests
-const ensureOrdersSchema = async () => {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS orders (
-      id SERIAL PRIMARY KEY,
-      cart_id INTEGER NOT NULL,
-      first_name TEXT NOT NULL,
-      last_name TEXT NOT NULL,
-      email TEXT NOT NULL,
-      address TEXT NOT NULL,
-      city TEXT NOT NULL,
-      state TEXT NOT NULL,
-      zip TEXT NOT NULL,
-      country TEXT NOT NULL,
-      phone TEXT NOT NULL,
-      subtotal NUMERIC(10,2) NOT NULL,
-      delivery_fee NUMERIC(10,2) NOT NULL,
-      total NUMERIC(10,2) NOT NULL,
-      status TEXT DEFAULT 'pending',
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS order_items (
-      id SERIAL PRIMARY KEY,
-      order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
-      product_id INTEGER NOT NULL,
-      quantity INTEGER NOT NULL,
-      price NUMERIC(10,2) NOT NULL,
-      total_price NUMERIC(10,2) NOT NULL
-    );
-  `);
-};
+// // Ensure order tables exist before handling requests
+// const ensureOrdersSchema = async () => {
+//   await pool.query(`
+//     CREATE TABLE IF NOT EXISTS orders (
+//       id SERIAL PRIMARY KEY,
+//       cart_id INTEGER NOT NULL,
+//       first_name TEXT NOT NULL,
+//       last_name TEXT NOT NULL,
+//       email TEXT NOT NULL,
+//       address TEXT NOT NULL,
+//       city TEXT NOT NULL,
+//       state TEXT NOT NULL,
+//       zip TEXT NOT NULL,
+//       country TEXT NOT NULL,
+//       phone TEXT NOT NULL,
+//       subtotal NUMERIC(10,2) NOT NULL,
+//       delivery_fee NUMERIC(10,2) NOT NULL,
+//       total NUMERIC(10,2) NOT NULL,
+//       status TEXT DEFAULT 'pending',
+//       created_at TIMESTAMPTZ DEFAULT NOW()
+//     );
+//     CREATE TABLE IF NOT EXISTS order_items (
+//       id SERIAL PRIMARY KEY,
+//       order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+//       product_id INTEGER NOT NULL,
+//       quantity INTEGER NOT NULL,
+//       price NUMERIC(10,2) NOT NULL,
+//       total_price NUMERIC(10,2) NOT NULL
+//     );
+//   `);
+// };
 
-ensureOrdersSchema().catch((err) => {
-  console.error("Failed to ensure order tables", err);
-});
+// ensureOrdersSchema().catch((err) => {
+//   console.error("Failed to ensure order tables", err);
+// });
 
 // ----- Serve Images Folder -----
+
 app.use("/images", express.static("images"));
 
 // ----- GET: Fetch All Products -----

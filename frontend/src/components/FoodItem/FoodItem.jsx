@@ -106,7 +106,6 @@ const FoodItem = ({ id, price, description, image }) => {
         </div> */}
         <p className="food-item-desc">{description}</p>
         <p className="food-item-price">${price}</p>
-        {count > 0 && <p className="in-cart-indicator">In Cart: {count}</p>}
         {showCounter && (
           <>
             <button
