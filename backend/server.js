@@ -1,10 +1,12 @@
 import express from "express";
 import cors from "cors";
+import bodyParser from "body-parser";
 import { Pool } from "pg";
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // PostgreSQL Connection
 const pool = new Pool({
@@ -62,6 +64,139 @@ app.get("/products", async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+// ----- POST: Create New Product -----
+app.post("/products", async (req, res) => {
+  const { name, description, price, image_url } = req.body;
+
+  try {
+    if (!name || !description || price === undefined || !image_url) {
+      return res.status(400).json({
+        error: "Missing required fields: name, description, price, image_url",
+      });
+    }
+
+    if (isNaN(price) || price < 0) {
+      return res
+        .status(400)
+        .json({ error: "Price must be a valid positive number" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO products (name, description, price, image_url)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [name, description, price, image_url]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// ----- PATCH: Update Product -----
+app.patch("/products/:id", async (req, res) => {
+  try {
+    const product_id = parseInt(req.params.id, 10);
+
+    if (Number.isNaN(product_id)) {
+      return res.status(400).json({ error: "Invalid product id" });
+    }
+
+    const { name, description, price, image_url } = req.body;
+
+    // Check if product exists
+    const existing = await pool.query("SELECT id FROM products WHERE id = $1", [
+      product_id,
+    ]);
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    // Validate that at least one field is provided
+    if (!name && !description && price === undefined && !image_url) {
+      return res.status(400).json({
+        error:
+          "At least one field (name, description, price, image_url) must be provided",
+      });
+    }
+
+    // Validate price if provided
+    if (price !== undefined && (isNaN(price) || price < 0)) {
+      return res
+        .status(400)
+        .json({ error: "Price must be a valid positive number" });
+    }
+
+    // Build dynamic update query
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (name !== undefined) {
+      updates.push(`name = $${paramIndex++}`);
+      values.push(name);
+    }
+    if (description !== undefined) {
+      updates.push(`description = $${paramIndex++}`);
+      values.push(description);
+    }
+    if (price !== undefined) {
+      updates.push(`price = $${paramIndex++}`);
+      values.push(price);
+    }
+    if (image_url !== undefined) {
+      updates.push(`image_url = $${paramIndex++}`);
+      values.push(image_url);
+    }
+
+    values.push(product_id);
+
+    const result = await pool.query(
+      `UPDATE products 
+       SET ${updates.join(", ")} 
+       WHERE id = $${paramIndex}
+       RETURNING *`,
+      values
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// ----- DELETE: Delete Product -----
+app.delete("/products/:id", async (req, res) => {
+  try {
+    const product_id = parseInt(req.params.id, 10);
+
+    if (Number.isNaN(product_id)) {
+      return res.status(400).json({ error: "Invalid product id" });
+    }
+
+    // Check if product exists
+    const existing = await pool.query("SELECT id FROM products WHERE id = $1", [
+      product_id,
+    ]);
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    // Delete the product
+    await pool.query("DELETE FROM products WHERE id = $1", [product_id]);
+
+    res.json({ message: "Product deleted successfully" });
+  } catch (err) {
+    console.error(err);
     res.status(500).send("Server Error");
   }
 });
