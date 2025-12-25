@@ -37,7 +37,14 @@ const FoodItem = ({ id, price, description, image }) => {
 
   // Handle local quantity decrease (doesn't remove from cart)
   const handleDecreaseQuantity = () => {
-    setLocalQuantity((prev) => Math.max(1, prev - 1));
+    setLocalQuantity((prev) => {
+      const newQuantity = prev - 1;
+      if (newQuantity <= 0) {
+        setShowCounter(false);
+        return 0;
+      }
+      return newQuantity;
+    });
   };
 
   // Handle adding to cart with the selected quantity
@@ -106,7 +113,7 @@ const FoodItem = ({ id, price, description, image }) => {
         </div> */}
         <p className="food-item-desc">{description}</p>
         <p className="food-item-price">${price}</p>
-        {showCounter && (
+        {showCounter && localQuantity > 0 && (
           <>
             <button
               className="add-to-cart-button"
