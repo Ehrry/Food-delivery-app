@@ -4,7 +4,7 @@ import { assets } from "../../assets/assets";
 import { StoreContext } from "../../context/StoreContext";
 import { useNavigate } from "react-router-dom";
 
-const FoodItem = ({ id, price, description, image }) => {
+const FoodItem = ({ id, price, description, image, name }) => {
   const { cartItems, addToCart } = useContext(StoreContext);
   const [updating, setUpdating] = useState(false);
   const navigate = useNavigate();
@@ -107,10 +107,10 @@ const FoodItem = ({ id, price, description, image }) => {
         )}
       </div>
       <div className="foood-item-info">
-        {/* <div className="food-item-name-rating">
+        <div className="food-item-name-rating">
           <p>{name}</p>
-          <img src={assets.rating_starts} alt="" />
-        </div> */}
+          {/* <img src={assets.rating_starts} alt="" /> */}
+        </div>
         <p className="food-item-desc">{description}</p>
         <p className="food-item-price">${price}</p>
         {showCounter && localQuantity > 0 && (
