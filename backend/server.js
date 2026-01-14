@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
 import { Pool } from "pg";
+import dotenv from "dotenv";
+dotenv.config();
 
 const app = express();
 app.use(cors());
@@ -10,52 +12,154 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // PostgreSQL Connection
 const pool = new Pool({
-  user: "postgres",
-  host: "localhost",
-  database: "products table",
-  password: "ehrry",
-  port: 5432,
+  user: process.env.POSTGRES_USER || "postgres",
+  host: process.env.POSTGRES_HOST || "localhost",
+  database: process.env.POSTGRES_DB || "restaurant",
+  password: process.env.POSTGRES_PASSWORD || "ehrry",
+  port: parseInt(process.env.POSTGRES_PORT || "5432", 10),
 });
 
-// // Ensure order tables exist before handling requests
-// const ensureOrdersSchema = async () => {
-//   await pool.query(`
-//     CREATE TABLE IF NOT EXISTS orders (
-//       id SERIAL PRIMARY KEY,
-//       cart_id INTEGER NOT NULL,
-//       first_name TEXT NOT NULL,
-//       last_name TEXT NOT NULL,
-//       email TEXT NOT NULL,
-//       address TEXT NOT NULL,
-//       city TEXT NOT NULL,
-//       state TEXT NOT NULL,
-//       zip TEXT NOT NULL,
-//       country TEXT NOT NULL,
-//       phone TEXT NOT NULL,
-//       subtotal NUMERIC(10,2) NOT NULL,
-//       delivery_fee NUMERIC(10,2) NOT NULL,
-//       total NUMERIC(10,2) NOT NULL,
-//       status TEXT DEFAULT 'pending',
-//       created_at TIMESTAMPTZ DEFAULT NOW()
-//     );
-//     CREATE TABLE IF NOT EXISTS order_items (
-//       id SERIAL PRIMARY KEY,
-//       order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
-//       product_id INTEGER NOT NULL,
-//       quantity INTEGER NOT NULL,
-//       price NUMERIC(10,2) NOT NULL,
-//       total_price NUMERIC(10,2) NOT NULL
-//     );
-//   `);
-// };
+// Handle connection errors
+pool.on("error", (err) => {
+  console.error("Unexpected error on idle client", err);
+});
 
-// ensureOrdersSchema().catch((err) => {
-//   console.error("Failed to ensure order tables", err);
-// });
+// Track if schema is initialized
+let schemaInitialized = false;
+
+// Ensure all database tables exist before handling requests
+const ensureDatabaseSchema = async () => {
+  try {
+    // Test database connection first
+    await pool.query("SELECT 1");
+    console.log("✓ Database connection successful");
+
+    // Create products table (required for /products endpoint)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS products (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        price NUMERIC(10,2) NOT NULL,
+        image_url TEXT,
+        category VARCHAR(100)
+      );
+    `);
+
+    // Add category column if it doesn't exist (for existing tables)
+    await pool.query(`
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS category VARCHAR(100);
+    `);
+
+    console.log("✓ Products table ready");
+
+    // Create cart_items table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cart_items (
+        id SERIAL PRIMARY KEY,
+        cart_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL DEFAULT 1,
+        price NUMERIC(10,2) NOT NULL,
+        total_price NUMERIC(10,2) GENERATED ALWAYS AS (quantity * price) STORED,
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+      );
+    `);
+    console.log("✓ Cart items table ready");
+
+    // Create orders table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id SERIAL PRIMARY KEY,
+        cart_id INTEGER NOT NULL,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        address TEXT NOT NULL,
+        city TEXT NOT NULL,
+        state TEXT NOT NULL,
+        zip TEXT NOT NULL,
+        country TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        subtotal NUMERIC(10,2) NOT NULL,
+        delivery_fee NUMERIC(10,2) NOT NULL,
+        total NUMERIC(10,2) NOT NULL,
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    console.log("✓ Orders table ready");
+
+    // Create order_items table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS order_items (
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+        product_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL,
+        price NUMERIC(10,2) NOT NULL,
+        total_price NUMERIC(10,2) NOT NULL
+      );
+    `);
+    console.log("✓ Order items table ready");
+
+    console.log("✓ Database schema initialized successfully");
+    schemaInitialized = true;
+  } catch (err) {
+    console.error("✗ Failed to initialize database schema:", err.message);
+    console.error("Full error:", err);
+    schemaInitialized = false;
+    throw err;
+  }
+};
+
+// Middleware to ensure schema exists before handling requests
+const ensureSchemaMiddleware = async (req, res, next) => {
+  if (!schemaInitialized) {
+    try {
+      await ensureDatabaseSchema();
+      next();
+    } catch (err) {
+      console.error("Schema initialization failed in middleware:", err.message);
+      return res.status(500).json({
+        error: "Database Error",
+        message: "Failed to initialize database schema",
+        details: err.message,
+      });
+    }
+  } else {
+    next();
+  }
+};
 
 // ----- Serve Images Folder -----
 
 app.use("/images", express.static("images"));
+
+// ----- Health Check Route (before schema middleware) -----
+app.get("/health", async (req, res) => {
+  try {
+    // Test database connection
+    await pool.query("SELECT 1");
+
+    res.status(200).json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      database: "connected",
+      schema: schemaInitialized ? "initialized" : "not initialized",
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: "unhealthy",
+      timestamp: new Date().toISOString(),
+      database: "disconnected",
+      error: err.message,
+    });
+  }
+});
+
+// Apply schema middleware to all routes that need database
+app.use(ensureSchemaMiddleware);
 
 // ----- GET: Fetch All Products -----
 app.get("/products", async (req, res) => {
@@ -63,14 +167,19 @@ app.get("/products", async (req, res) => {
     const result = await pool.query("SELECT * FROM products ORDER BY id ASC");
     res.json(result.rows);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server Error");
+    console.error("Error fetching products:", err.message);
+    console.error("Full error:", err);
+    res.status(500).json({
+      error: "Server Error",
+      message: err.message,
+      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    });
   }
 });
 
 // ----- POST: Create New Product -----
 app.post("/products", async (req, res) => {
-  const { name, description, price, image_url } = req.body;
+  const { name, description, price, image_url, category } = req.body;
 
   try {
     if (!name || !description || price === undefined || !image_url) {
@@ -86,16 +195,21 @@ app.post("/products", async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO products (name, description, price, image_url)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO products (name, description, price, image_url, category)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [name, description, price, image_url]
+      [name, description, price, image_url, category || null]
     );
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Server Error");
+    console.error("Error creating product:", err.message);
+    console.error("Full error:", err);
+    res.status(500).json({
+      error: "Server Error",
+      message: err.message,
+      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    });
   }
 });
 
@@ -108,7 +222,7 @@ app.patch("/products/:id", async (req, res) => {
       return res.status(400).json({ error: "Invalid product id" });
     }
 
-    const { name, description, price, image_url } = req.body;
+    const { name, description, price, image_url, category } = req.body;
 
     // Check if product exists
     const existing = await pool.query("SELECT id FROM products WHERE id = $1", [
@@ -120,10 +234,16 @@ app.patch("/products/:id", async (req, res) => {
     }
 
     // Validate that at least one field is provided
-    if (!name && !description && price === undefined && !image_url) {
+    if (
+      !name &&
+      !description &&
+      price === undefined &&
+      !image_url &&
+      category === undefined
+    ) {
       return res.status(400).json({
         error:
-          "At least one field (name, description, price, image_url) must be provided",
+          "At least one field (name, description, price, image_url, category) must be provided",
       });
     }
 
@@ -155,6 +275,10 @@ app.patch("/products/:id", async (req, res) => {
       updates.push(`image_url = $${paramIndex++}`);
       values.push(image_url);
     }
+    if (category !== undefined) {
+      updates.push(`category = $${paramIndex++}`);
+      values.push(category);
+    }
 
     values.push(product_id);
 
@@ -168,8 +292,13 @@ app.patch("/products/:id", async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Server Error");
+    console.error("Error updating product:", err.message);
+    console.error("Full error:", err);
+    res.status(500).json({
+      error: "Server Error",
+      message: err.message,
+      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    });
   }
 });
 
@@ -196,8 +325,13 @@ app.delete("/products/:id", async (req, res) => {
 
     res.json({ message: "Product deleted successfully" });
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Server Error");
+    console.error("Error deleting product:", err.message);
+    console.error("Full error:", err);
+    res.status(500).json({
+      error: "Server Error",
+      message: err.message,
+      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    });
   }
 });
 
@@ -249,8 +383,13 @@ app.post("/cart/add", async (req, res) => {
 
     res.json({ message: "Item added to cart" });
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Server Error");
+    console.error("Error adding to cart:", err.message);
+    console.error("Full error:", err);
+    res.status(500).json({
+      error: "Server Error",
+      message: err.message,
+      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    });
   }
 });
 
@@ -277,8 +416,13 @@ app.get("/cart", async (req, res) => {
 
     res.json(cartItems.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Server Error");
+    console.error("Error fetching cart:", err.message);
+    console.error("Full error:", err);
+    res.status(500).json({
+      error: "Server Error",
+      message: err.message,
+      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    });
   }
 });
 
@@ -309,8 +453,13 @@ app.delete("/cart/:productId", async (req, res) => {
 
     res.json({ message: "Item removed from cart" });
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Server Error");
+    console.error("Error removing from cart:", err.message);
+    console.error("Full error:", err);
+    res.status(500).json({
+      error: "Server Error",
+      message: err.message,
+      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    });
   }
 });
 
@@ -349,8 +498,13 @@ app.patch("/cart/:productId/decrement", async (req, res) => {
 
     res.json({ message: "Item quantity decremented" });
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Server Error");
+    console.error("Error decrementing cart item:", err.message);
+    console.error("Full error:", err);
+    res.status(500).json({
+      error: "Server Error",
+      message: err.message,
+      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    });
   }
 });
 
@@ -399,8 +553,13 @@ app.get("/orders", async (req, res) => {
 
     res.json(result.rows);
   } catch (err) {
-    console.error("Failed to fetch orders:", err);
-    res.status(500).send("Server Error");
+    console.error("Error fetching orders:", err.message);
+    console.error("Full error:", err);
+    res.status(500).json({
+      error: "Server Error",
+      message: err.message,
+      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    });
   }
 });
 
@@ -505,12 +664,36 @@ app.post("/orders", async (req, res) => {
     if (transactionStarted) {
       await pool.query("ROLLBACK");
     }
-    console.error("Order placement failed:", err);
-    res.status(500).send("Server Error");
+    console.error("Error placing order:", err.message);
+    console.error("Full error:", err);
+    res.status(500).json({
+      error: "Server Error",
+      message: err.message,
+      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    });
   }
 });
 
-// Start server
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
-});
+// Start server after ensuring database schema is ready
+const startServer = async () => {
+  try {
+    // Ensure schema is initialized before starting server
+    await ensureDatabaseSchema();
+
+    app.listen(5000, () => {
+      console.log("✓ Server running on port 5000");
+      console.log("✓ Ready to accept requests");
+    });
+  } catch (err) {
+    console.error("✗ Failed to start server:", err.message);
+    // Still start the server - schema will be created on next request
+    app.listen(5000, () => {
+      console.log(
+        "⚠ Server running on port 5000 (schema initialization failed)"
+      );
+      console.log("⚠ Will retry schema creation on first request");
+    });
+  }
+};
+
+startServer();
