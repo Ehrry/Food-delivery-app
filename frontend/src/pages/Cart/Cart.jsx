@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import "./Cart.css";
 import { StoreContext } from "../../context/StoreContext";
 import { useNavigate } from "react-router-dom";
+import { API_URL } from "../../api";
 
 const Cart = () => {
   const { fetchCartItems, deleteCartItem } = useContext(StoreContext);
@@ -13,7 +14,7 @@ const Cart = () => {
 
   const buildImageSrc = (url) => {
     if (!url) return "";
-    return url.startsWith("http") ? url : `http://localhost:5000${url}`;
+    return url.startsWith("http") ? url : `${API_URL}${url}`;
   };
 
   const loadCart = async () => {

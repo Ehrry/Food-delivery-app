@@ -10,13 +10,15 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+const PORT = process.env.PORT || 5000;
+
 // PostgreSQL Connection
 const pool = new Pool({
-  user: process.env.POSTGRES_USER || "postgres",
-  host: process.env.POSTGRES_HOST || "localhost",
-  database: process.env.POSTGRES_DB || "restaurant",
-  password: process.env.POSTGRES_PASSWORD || "ehrry",
-  port: parseInt(process.env.POSTGRES_PORT || "5432", 10),
+  connectionString: process.env.DATABASE_URL,
+  ssl:
+    process.env.NODE_ENV === "production"
+      ? { rejectUnauthorized: false }
+      : false,
 });
 
 // Handle connection errors
@@ -769,16 +771,16 @@ const startServer = async () => {
     // Ensure schema is initialized before starting server
     await ensureDatabaseSchema();
 
-    app.listen(5000, () => {
-      console.log("✓ Server running on port 5000");
+    app.listen(PORT, () => {
+      console.log(`✓ Server running on port ${PORT}`);
       console.log("✓ Ready to accept requests");
     });
   } catch (err) {
     console.error("✗ Failed to start server:", err.message);
     // Still start the server - schema will be created on next request
-    app.listen(5000, () => {
+    app.listen(PORT, () => {
       console.log(
-        "⚠ Server running on port 5000 (schema initialization failed)"
+        `⚠ Server running on port ${PORT} (schema initialization failed)`
       );
       console.log("⚠ Will retry schema creation on first request");
     });

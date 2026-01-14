@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./DisplayOrder.css";
+import { API_URL } from "../../api";
 
 const formatCurrency = (value) =>
   Number.parseFloat(value ?? 0)
@@ -21,7 +22,7 @@ const formatDate = (value) => {
 
 const normalizeImageUrl = (url) => {
   if (!url) return null;
-  return url.startsWith("http") ? url : `http://localhost:5000${url}`;
+  return url.startsWith("http") ? url : `${API_URL}${url}`;
 };
 
 const getInitials = (first = "", last = "") => {
@@ -42,7 +43,7 @@ const DisplayOrder = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://localhost:5000/orders");
+      const res = await fetch(`${API_URL}/orders`);
       if (!res.ok) {
         throw new Error("Unable to fetch orders right now.");
       }

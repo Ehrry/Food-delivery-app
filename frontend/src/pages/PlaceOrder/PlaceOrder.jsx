@@ -2,6 +2,7 @@ import React, { useContext, useState } from "react";
 import "./PlaceOrder.css";
 import { StoreContext } from "../../context/StoreContext";
 import { useNavigate } from "react-router-dom";
+import { API_URL } from "../../api";
 
 const PlaceOrder = () => {
   const { getTotalCartAmount, fetchCartItems } = useContext(StoreContext);
@@ -39,7 +40,7 @@ const PlaceOrder = () => {
     setIsSubmitting(true);
     setServerMessage("");
     try {
-      const response = await fetch("http://localhost:5000/orders", {
+      const response = await fetch(`${API_URL}/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),

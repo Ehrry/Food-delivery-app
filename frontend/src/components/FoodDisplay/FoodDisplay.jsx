@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./FoodDisplay.css";
 import FoodItem from "../FoodItem/FoodItem";
+import { API_URL } from "../../api";
 
 const FoodDisplay = ({ category }) => {
   const [items, setItems] = useState([]);
@@ -13,7 +14,7 @@ const FoodDisplay = ({ category }) => {
     const fetchItems = async () => {
       setLoading(true);
       try {
-        const res = await fetch("http://localhost:5000/products", {
+        const res = await fetch(`${API_URL}/products`, {
           signal: controller.signal,
         });
         if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);

@@ -1,6 +1,7 @@
 import { createContext, useEffect, useState } from "react";
 
 import { food_list } from "../assets/assets";
+import { API_URL } from "../api";
 
 export const StoreContext = createContext(null);
 
@@ -8,7 +9,7 @@ const StoreContextProvider = (props) => {
   const [cartItems, setCartItems] = useState({});
 
   const fetchCartItems = async () => {
-    const response = await fetch("http://localhost:5000/cart");
+    const response = await fetch(`${API_URL}/cart`);
     if (!response.ok) {
       throw new Error("Unable to fetch cart items");
     }
@@ -32,7 +33,7 @@ const StoreContextProvider = (props) => {
 
   const addToCart = async (productId, quantity = 1) => {
     try {
-      const response = await fetch("http://localhost:5000/cart/add", {
+      const response = await fetch(`${API_URL}/cart/add`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -55,12 +56,9 @@ const StoreContextProvider = (props) => {
 
   const removeFromCart = async (productId) => {
     try {
-      const response = await fetch(
-        `http://localhost:5000/cart/${productId}/decrement`,
-        {
-          method: "PATCH",
-        }
-      );
+      const response = await fetch(`${API_URL}/cart/${productId}/decrement`, {
+        method: "PATCH",
+      });
 
       if (!response.ok) {
         const errorBody = await response.text();
@@ -77,7 +75,7 @@ const StoreContextProvider = (props) => {
 
   const deleteCartItem = async (productId) => {
     try {
-      const response = await fetch(`http://localhost:5000/cart/${productId}`, {
+      const response = await fetch(`${API_URL}/cart/${productId}`, {
         method: "DELETE",
       });
 
