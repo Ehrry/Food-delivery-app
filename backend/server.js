@@ -177,43 +177,7 @@ app.get("/products", async (req, res) => {
   }
 });
 
-// ----- POST: Create New Product -----
-app.post("/products", async (req, res) => {
-  const { name, description, price, image_url, category } = req.body;
-
-  try {
-    if (!name || !description || price === undefined || !image_url) {
-      return res.status(400).json({
-        error: "Missing required fields: name, description, price, image_url",
-      });
-    }
-
-    if (isNaN(price) || price < 0) {
-      return res
-        .status(400)
-        .json({ error: "Price must be a valid positive number" });
-    }
-
-    const result = await pool.query(
-      `INSERT INTO products (name, description, price, image_url, category)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [name, description, price, image_url, category || null]
-    );
-
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error("Error creating product:", err.message);
-    console.error("Full error:", err);
-    res.status(500).json({
-      error: "Server Error",
-      message: err.message,
-      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
-    });
-  }
-});
-
-// ----- POST: Bulk Create Products -----
+// ----- POST: Bulk Create Products (must come before /products) -----
 app.post("/products/bulk", async (req, res) => {
   const products = req.body;
 
@@ -293,6 +257,42 @@ app.post("/products/bulk", async (req, res) => {
     }
   } catch (err) {
     console.error("Error bulk creating products:", err.message);
+    console.error("Full error:", err);
+    res.status(500).json({
+      error: "Server Error",
+      message: err.message,
+      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    });
+  }
+});
+
+// ----- POST: Create New Product -----
+app.post("/products", async (req, res) => {
+  const { name, description, price, image_url, category } = req.body;
+
+  try {
+    if (!name || !description || price === undefined || !image_url) {
+      return res.status(400).json({
+        error: "Missing required fields: name, description, price, image_url",
+      });
+    }
+
+    if (isNaN(price) || price < 0) {
+      return res
+        .status(400)
+        .json({ error: "Price must be a valid positive number" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO products (name, description, price, image_url, category)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [name, description, price, image_url, category || null]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Error creating product:", err.message);
     console.error("Full error:", err);
     res.status(500).json({
       error: "Server Error",
