@@ -26,6 +26,21 @@ async function bulkInsertProducts() {
 
     console.log(`Found ${products.length} products to insert`);
 
+    // Test server connection first
+    console.log(`Testing server connection at ${API_URL}...`);
+    try {
+      const healthCheck = await fetch(`${API_URL}/health`);
+      if (healthCheck.ok) {
+        console.log("✓ Server is reachable");
+      } else {
+        console.warn("⚠ Server responded but health check failed");
+      }
+    } catch (err) {
+      console.error(`❌ Cannot connect to server at ${API_URL}`);
+      console.error("Make sure the server is running: npm start");
+      throw new Error(`Server connection failed: ${err.message}`);
+    }
+
     // Post to bulk endpoint
     console.log(`Posting to ${API_URL}/products/bulk...`);
     const response = await fetch(`${API_URL}/products/bulk`, {
@@ -36,7 +51,22 @@ async function bulkInsertProducts() {
       body: JSON.stringify(products),
     });
 
-    const result = await response.json();
+    // Get response text first to check if it's JSON or HTML
+    const responseText = await response.text();
+
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error(
+        `\n❌ Server returned non-JSON response (Status: ${response.status} ${response.statusText})`
+      );
+      console.error("Response body:", responseText.substring(0, 500));
+      throw new Error(
+        `Server returned HTML instead of JSON. Status: ${response.status}. ` +
+          `This usually means the route doesn't exist or there's a server error.`
+      );
+    }
 
     if (!response.ok) {
       throw new Error(
