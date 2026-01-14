@@ -213,6 +213,95 @@ app.post("/products", async (req, res) => {
   }
 });
 
+// ----- POST: Bulk Create Products -----
+app.post("/products/bulk", async (req, res) => {
+  const products = req.body;
+
+  try {
+    // Validate that products is an array
+    if (!Array.isArray(products)) {
+      return res.status(400).json({
+        error: "Request body must be an array of products",
+      });
+    }
+
+    if (products.length === 0) {
+      return res.status(400).json({
+        error: "Products array cannot be empty",
+      });
+    }
+
+    // Validate all products before inserting
+    for (let i = 0; i < products.length; i++) {
+      const { name, description, price, image_url, category } = products[i];
+
+      if (!name || !description || price === undefined || !image_url) {
+        return res.status(400).json({
+          error: `Product at index ${i} is missing required fields: name, description, price, image_url`,
+        });
+      }
+
+      if (isNaN(price) || price < 0) {
+        return res.status(400).json({
+          error: `Product at index ${i} has invalid price: price must be a valid positive number`,
+        });
+      }
+    }
+
+    // Use a transaction for bulk insert
+    await pool.query("BEGIN");
+
+    try {
+      // Build bulk insert query using VALUES with multiple rows
+      const values = [];
+      const placeholders = [];
+      let paramIndex = 1;
+
+      for (const product of products) {
+        const row = [];
+        row.push(`$${paramIndex++}`); // name
+        values.push(product.name);
+        row.push(`$${paramIndex++}`); // description
+        values.push(product.description);
+        row.push(`$${paramIndex++}`); // price
+        values.push(product.price);
+        row.push(`$${paramIndex++}`); // image_url
+        values.push(product.image_url);
+        row.push(`$${paramIndex++}`); // category
+        values.push(product.category || null);
+
+        placeholders.push(`(${row.join(", ")})`);
+      }
+
+      const query = `
+        INSERT INTO products (name, description, price, image_url, category)
+        VALUES ${placeholders.join(", ")}
+        RETURNING *
+      `;
+
+      const result = await pool.query(query, values);
+      await pool.query("COMMIT");
+
+      res.status(201).json({
+        message: `Successfully created ${result.rows.length} products`,
+        count: result.rows.length,
+        products: result.rows,
+      });
+    } catch (err) {
+      await pool.query("ROLLBACK");
+      throw err;
+    }
+  } catch (err) {
+    console.error("Error bulk creating products:", err.message);
+    console.error("Full error:", err);
+    res.status(500).json({
+      error: "Server Error",
+      message: err.message,
+      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    });
+  }
+});
+
 // ----- PATCH: Update Product -----
 app.patch("/products/:id", async (req, res) => {
   try {
